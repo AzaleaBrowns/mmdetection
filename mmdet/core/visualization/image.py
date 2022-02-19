@@ -15,10 +15,8 @@ EPS = 1e-2
 def color_val_matplotlib(color):
     """Convert various input in BGR order to normalized RGB matplotlib color
     tuples,
-
     Args:
         color (:obj:`Color`/str/tuple/int/ndarray): Color inputs
-
     Returns:
         tuple[float]: A tuple of 3 normalized floats indicating RGB channels.
     """
@@ -43,33 +41,28 @@ def imshow_det_bboxes(img,
                       wait_time=0,
                       out_file=None):
     """Draw bboxes and class labels (with scores) on an image.
-
     Args:
-        img (str | ndarray): The image to be displayed.
+        img (str or ndarray): The image to be displayed.
         bboxes (ndarray): Bounding boxes (with scores), shaped (n, 4) or
             (n, 5).
         labels (ndarray): Labels of bboxes.
-        segms (ndarray | None): Masks, shaped (n,h,w) or None.
+        segms (ndarray or None): Masks, shaped (n,h,w) or None
         class_names (list[str]): Names of each classes.
-        score_thr (float): Minimum score of bboxes to be shown. Default: 0.
-        bbox_color (list[tuple] | tuple | str | None): Colors of bbox lines.
-           If a single color is given, it will be applied to all classes.
-           The tuple of color should be in RGB order. Default: 'green'.
-        text_color (list[tuple] | tuple | str | None): Colors of texts.
-           If a single color is given, it will be applied to all classes.
-           The tuple of color should be in RGB order. Default: 'green'.
-        mask_color (list[tuple] | tuple | str | None, optional): Colors of
-           masks. If a single color is given, it will be applied to all
-           classes. The tuple of color should be in RGB order.
-           Default: None.
-        thickness (int): Thickness of lines. Default: 2.
-        font_size (int): Font size of texts. Default: 13.
-        show (bool): Whether to show the image. Default: True.
-        win_name (str): The window name. Default: ''.
+        score_thr (float): Minimum score of bboxes to be shown.  Default: 0
+        bbox_color (str or tuple(int) or :obj:`Color`):Color of bbox lines.
+           The tuple of color should be in BGR order. Default: 'green'
+        text_color (str or tuple(int) or :obj:`Color`):Color of texts.
+           The tuple of color should be in BGR order. Default: 'green'
+        mask_color (str or tuple(int) or :obj:`Color`, optional):
+           Color of masks. The tuple of color should be in BGR order.
+           Default: None
+        thickness (int): Thickness of lines. Default: 2
+        font_size (int): Font size of texts. Default: 13
+        show (bool): Whether to show the image. Default: True
+        win_name (str): The window name. Default: ''
         wait_time (float): Value of waitKey param. Default: 0.
         out_file (str, optional): The filename to write the image.
-            Default: None.
-
+            Default: None
     Returns:
         ndarray: The image with bboxes drawn on it.
     """
@@ -81,7 +74,7 @@ def imshow_det_bboxes(img,
         'bboxes.shape[0] and labels.shape[0] should have the same length.'
     assert bboxes.shape[1] == 4 or bboxes.shape[1] == 5, \
         f' bboxes.shape[1] should be 4 or 5, but its {bboxes.shape[1]}.'
-    img = mmcv.imread(img).astype(np.uint8)
+    img = mmcv.imread(img)
 
     if score_thr > 0:
         assert bboxes.shape[1] == 5
@@ -89,92 +82,49 @@ def imshow_det_bboxes(img,
         inds = scores > score_thr
         bboxes = bboxes[inds, :]
         labels = labels[inds]
-        if segms is not None:
-            segms = segms[inds, ...]
-
-    max_label = int(max(labels)) if labels.shape[0] > 0 else -1
-    bbox_color = palette_val(get_palette(bbox_color, max_label + 1))
-    text_color = palette_val(get_palette(text_color, max_label + 1))
-    mask_color = get_palette(mask_color, max_label + 1)
-    mask_color = np.array(mask_color, dtype=np.uint8)
-
-    img = mmcv.bgr2rgb(img)
-    width, height = img.shape[1], img.shape[0]
+    color = {
+            "car": 'red',
+            "bus": 'blue',
+            "truck": 'green',
+            "motor": "yellow"
+          }
+    # labelss = {
+    #     "car": "1",
+    #     "bus": "2",
+    #     "truck": "3",
+    #     "motor": "4"
+    #   }
+    # f = open(out_file.split(".")[0] + ".txt","w")
+    text_color = mmcv.color_val(text_color)
     img = np.ascontiguousarray(img)
-
-    fig = plt.figure(win_name, frameon=False)
-    plt.title(win_name)
-    canvas = fig.canvas
-    dpi = fig.get_dpi()
-    # add a small EPS to avoid precision lost due to matplotlib's truncation
-    # (https://github.com/matplotlib/matplotlib/issues/15363)
-    fig.set_size_inches((width + EPS) / dpi, (height + EPS) / dpi)
-
-    # remove white edges by set subplot margin
-    plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
-    ax = plt.gca()
-    ax.axis('off')
-
-    polygons = []
-    color = []
-    for i, (bbox, label) in enumerate(zip(bboxes, labels)):
-        bbox_int = bbox.astype(np.int32)
-        poly = [[bbox_int[0], bbox_int[1]], [bbox_int[0], bbox_int[3]],
-                [bbox_int[2], bbox_int[3]], [bbox_int[2], bbox_int[1]]]
-        np_poly = np.array(poly).reshape((4, 2))
-        polygons.append(Polygon(np_poly))
-        color.append(bbox_color[label])
+    for bbox, label in zip(bboxes, labels):
         label_text = class_names[
-            label] if class_names is not None else f'class {label}'
+                label] if class_names is not None else f'cls {label}'
+        #print(color[label_text])
+        colors =  mmcv.color_val(color[label_text])
+        #print(labelss[label_text])
+        # f.write(labelss[label_text] + " ")
+        bbox_int = bbox.astype(np.int32)
+        left_top = (bbox_int[0], bbox_int[1])
+        right_bottom = (bbox_int[2], bbox_int[3])
+        
+        cv2.rectangle(
+            img, left_top, right_bottom, colors, thickness=thickness)
+        
         if len(bbox) > 4:
-            label_text += f'|{bbox[-1]:.02f}'
-        ax.text(
-            bbox_int[0],
-            bbox_int[1],
-            f'{label_text}',
-            bbox={
-                'facecolor': 'black',
-                'alpha': 0.8,
-                'pad': 0.7,
-                'edgecolor': 'none'
-            },
-            color=text_color[label],
-            fontsize=font_size,
-            verticalalignment='top',
-            horizontalalignment='left')
-        if segms is not None:
-            color_mask = mask_color[labels[i]]
-            mask = segms[i].astype(bool)
-            img[mask] = img[mask] * 0.5 + color_mask * 0.5
-
-    plt.imshow(img)
-
-    p = PatchCollection(
-        polygons, facecolor='none', edgecolors=color, linewidths=thickness)
-    ax.add_collection(p)
-
-    stream, _ = canvas.print_to_buffer()
-    buffer = np.frombuffer(stream, dtype='uint8')
-    img_rgba = buffer.reshape(height, width, 4)
-    rgb, alpha = np.split(img_rgba, [3], axis=2)
-    img = rgb.astype('uint8')
-    img = mmcv.rgb2bgr(img)
-
+          label_text += f'|{bbox[-1]:.02f}'
+        font_scale=0.5
+        cv2.putText(img, label_text, (bbox_int[0], bbox_int[1] - 2),
+                    cv2.FONT_HERSHEY_COMPLEX, font_scale, colors)
+        # f.write(str(bbox_int[0]) + " " + str(bbox_int[1]) + " " + str(bbox_int[2]) + " " + str(bbox_int[3]))
+        # f.write("\n")
+        #f.write(right_bottom)
+    
     if show:
-        # We do not use cv2 for display because in some cases, opencv will
-        # conflict with Qt, it will output a warning: Current thread
-        # is not the object's thread. You can refer to
-        # https://github.com/opencv/opencv-python/issues/46 for details
-        if wait_time == 0:
-            plt.show()
-        else:
-            plt.show(block=False)
-            plt.pause(wait_time)
+        imshow(img, win_name, wait_time)
     if out_file is not None:
-        mmcv.imwrite(img, out_file)
-
-    plt.close()
-
+        imwrite(img, out_file)
+        # f.close()
     return img
 
 
@@ -196,41 +146,35 @@ def imshow_gt_det_bboxes(img,
                          wait_time=0,
                          out_file=None):
     """General visualization GT and result function.
-
     Args:
-      img (str | ndarray): The image to be displayed.
+      img (str or ndarray): The image to be displayed.)
       annotation (dict): Ground truth annotations where contain keys of
-          'gt_bboxes' and 'gt_labels' or 'gt_masks'.
-      result (tuple[list] | list): The detection result, can be either
+          'gt_bboxes' and 'gt_labels' or 'gt_masks'
+      result (tuple[list] or list): The detection result, can be either
           (bbox, segm) or just bbox.
       class_names (list[str]): Names of each classes.
-      score_thr (float): Minimum score of bboxes to be shown. Default: 0.
-      gt_bbox_color (list[tuple] | tuple | str | None): Colors of bbox lines.
-          If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (255, 102, 61).
-      gt_text_color (list[tuple] | tuple | str | None): Colors of texts.
-          If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (255, 102, 61).
-      gt_mask_color (list[tuple] | tuple | str | None, optional): Colors of
-          masks. If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (255, 102, 61).
-      det_bbox_color (list[tuple] | tuple | str | None):Colors of bbox lines.
-          If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (72, 101, 241).
-      det_text_color (list[tuple] | tuple | str | None):Colors of texts.
-          If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (72, 101, 241).
-      det_mask_color (list[tuple] | tuple | str | None, optional): Color of
-          masks. If a single color is given, it will be applied to all classes.
-          The tuple of color should be in RGB order. Default: (72, 101, 241).
-      thickness (int): Thickness of lines. Default: 2.
-      font_size (int): Font size of texts. Default: 13.
-      win_name (str): The window name. Default: ''.
-      show (bool): Whether to show the image. Default: True.
+      score_thr (float): Minimum score of bboxes to be shown.  Default: 0
+      gt_bbox_color (str or tuple(int) or :obj:`Color`):Color of bbox lines.
+           The tuple of color should be in BGR order. Default: (255, 102, 61)
+      gt_text_color (str or tuple(int) or :obj:`Color`):Color of texts.
+           The tuple of color should be in BGR order. Default: (255, 102, 61)
+      gt_mask_color (str or tuple(int) or :obj:`Color`, optional):
+           Color of masks. The tuple of color should be in BGR order.
+           Default: (255, 102, 61)
+      det_bbox_color (str or tuple(int) or :obj:`Color`):Color of bbox lines.
+           The tuple of color should be in BGR order. Default: (72, 101, 241)
+      det_text_color (str or tuple(int) or :obj:`Color`):Color of texts.
+           The tuple of color should be in BGR order. Default: (72, 101, 241)
+      det_mask_color (str or tuple(int) or :obj:`Color`, optional):
+           Color of masks. The tuple of color should be in BGR order.
+           Default: (72, 101, 241)
+      thickness (int): Thickness of lines. Default: 2
+      font_size (int): Font size of texts. Default: 13
+      win_name (str): The window name. Default: ''
+      show (bool): Whether to show the image. Default: True
       wait_time (float): Value of waitKey param. Default: 0.
       out_file (str, optional): The filename to write the image.
-          Default: None.
-
+         Default: None
     Returns:
         ndarray: The image with bboxes or masks drawn on it.
     """
